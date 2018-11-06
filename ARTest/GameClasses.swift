@@ -63,21 +63,36 @@ class Fuzzy: SCNNode {
         emitter.colliderNodes = colliders
     }
     
-    func updateAtTime(deltaT: TimeInterval, colliders: [SCNNode], fleePosition: SCNVector3) {
+    func updateAtTime(deltaT: TimeInterval, colliders: [SCNNode], fleePosition: SCNVector3, fuzzies: [Fuzzy]) {
         age += deltaT
         let dt = Float(deltaT)
-        let deltaFlee = float3(fleePosition) - float3(position)
+        let originalPosition = float3(position)
+        let deltaFlee = float3(fleePosition) - originalPosition
         let signFlee = simd_sign(deltaFlee)
         let d2 = simd_dot(deltaFlee, deltaFlee)
         let strength = max(1, 1/d2)
-    
-        self.position.x -= signFlee.x * strength * dt / 10
-        self.position.z -= signFlee.z * strength * dt / 10
+        
+        var updatedPosition = originalPosition
+        updatedPosition -= signFlee * strength * dt / 10
+
+        for fuzzy in fuzzies {
+            guard fuzzy != self else { continue }
+            let deltaFuzz = float3(fuzzy.position) - originalPosition
+            let signFuzz = simd_sign(deltaFuzz)
+            let d2f = simd_dot(signFuzz, signFuzz)
+            let strf = max(1, 1/d2f)
+            updatedPosition -= signFuzz * strf * dt / 10
+        }
+        self.position = SCNVector3(updatedPosition.x, originalPosition.y, updatedPosition.z)
         
         
+        
+        
+        //apply hard bounds
         let bounds = parentPlane.planeNode.boundingBox
         let minBound = parentPlane.convertPosition(bounds.min, to: self.parent)
         let maxBound = parentPlane.convertPosition(bounds.max, to: self.parent)
+        //print("\(minBound)\t\(maxBound)")
         
         
         if self.position.x > maxBound.x {

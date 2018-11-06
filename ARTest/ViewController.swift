@@ -102,6 +102,18 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
             }
         }
     }
+    func renderer(_ renderer: SCNSceneRenderer, didRemove node: SCNNode, for anchor: ARAnchor) {
+        guard let plane = anchor as? ARPlaneAnchor else { return }
+        DispatchQueue.main.sync {
+            let deadp = planes.removeValue(forKey: plane)
+            let fuzzy = fuzzies.first(where: { (fuzz) -> Bool in
+                fuzz.parentPlane == deadp
+            })
+            deadp?.removeFromParentNode()
+            fuzzies.remove(at: fuzzies.firstIndex(of: fuzzy!)!)
+            fuzzy?.removeFromParentNode()
+        }
+    }
     var lookingPosition: SCNNode = SCNNode()
     var lastTime = 0 as TimeInterval
     
@@ -113,9 +125,8 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         let colliders = [Plane](planes.values)
         var markedByTheKindred = nil as Int?
         for (index, fuzzy) in fuzzies.enumerated() {
-            guard time > 10 else { break }
-            fuzzy.updateAtTime(deltaT: deltaT, colliders: colliders, fleePosition: position)
-            if fuzzy.age > 5 && !sceneView.isNode(fuzzy, insideFrustumOf: sceneView.pointOfView!) && randCGFloat() > 0.9965 {
+            fuzzy.updateAtTime(deltaT: deltaT, colliders: colliders, fleePosition: position, fuzzies: fuzzies)
+            if fuzzy.age > 5 && !renderer.isNode(fuzzy, insideFrustumOf: renderer.pointOfView!) && randCGFloat() > 0.0009965 {
                 markedByTheKindred = index
             }
         }
@@ -123,13 +134,18 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
             let dead = fuzzies.remove(at: index)
             dead.removeFromParentNode()
         }
-        
-        if time > 1, fuzzies.count < 5 {
+        if time > 1, fuzzies.count < 20 {
             guard let plane = colliders.randomElement() else { return }
             let fuzz = Fuzzy(color: UIColor(hue: randCGFloat(), saturation: randCGFloat()*0.1 + 0.9, brightness: randCGFloat() * 0.1 + 0.5, alpha: 1),plane: plane)
-            fuzzies.append(fuzz)
-            fuzz.position = SCNVector3(float3(plane.worldPosition) + float3(Float(randCGFloat()), 0, Float(randCGFloat())))
+            fuzz.position = SCNVector3(float3(plane.worldPosition) + float3(Float(plane.planeGeometry.width * randCGFloat()), 0, Float(plane.planeGeometry.height * randCGFloat())))
             root.addChildNode(fuzz)
+            /*if sceneView.isNode(fuzz, insideFrustumOf: sceneView.pointOfView!) {
+                fuzz.removeFromParentNode()
+                print("avoided")
+            } else {
+                print("added")
+            }*/
+            fuzzies.append(fuzz)
         }
     }
     
