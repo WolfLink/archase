@@ -34,7 +34,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         
         // Set the scene to the view
         sceneView.scene.rootNode.addChildNode(lookingPosition)
-        sceneView.debugOptions = [.showFeaturePoints, .showWorldOrigin]
+        //sceneView.debugOptions = [.showFeaturePoints, .showWorldOrigin]
         sceneView.session.delegate = self
         
         
@@ -110,7 +110,9 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                 fuzz.parentPlane == deadp
             })
             deadp?.removeFromParentNode()
-            fuzzies.remove(at: fuzzies.firstIndex(of: fuzzy!)!)
+            if let f = fuzzy, let index = fuzzies.firstIndex(of: f) {
+                fuzzies.remove(at: index)
+            }
             fuzzy?.removeFromParentNode()
         }
     }
@@ -121,11 +123,14 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         let deltaT = time - lastTime
         lastTime = time
         let position = lookingPosition.position
+        let cameraPosition = sceneView.pointOfView!.position
+        let cameraAngle = sceneView.pointOfView!.eulerAngles.y
         let root = sceneView.scene.rootNode
         let colliders = [Plane](planes.values)
         var markedByTheKindred = nil as Int?
         for (index, fuzzy) in fuzzies.enumerated() {
-            fuzzy.updateAtTime(deltaT: deltaT, colliders: colliders, fleePosition: position, fuzzies: fuzzies)
+            fuzzy.updateAtTime(deltaT: deltaT, colliders: colliders, fleePosition: position, cameraPosition: cameraPosition, cameraAngle: cameraAngle, fuzzies: fuzzies)
+            //print(renderer.projectPoint(fuzzy.position))
             if fuzzy.age > 5 && !renderer.isNode(fuzzy, insideFrustumOf: renderer.pointOfView!) && randCGFloat() > 0.0009965 {
                 markedByTheKindred = index
             }
@@ -134,7 +139,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
             let dead = fuzzies.remove(at: index)
             dead.removeFromParentNode()
         }
-        if time > 1, fuzzies.count < 20 {
+        if time > 1, fuzzies.count < 10 {
             guard let plane = colliders.randomElement() else { return }
             let fuzz = Fuzzy(color: UIColor(hue: randCGFloat(), saturation: randCGFloat()*0.1 + 0.9, brightness: randCGFloat() * 0.1 + 0.5, alpha: 1),plane: plane)
             fuzz.position = SCNVector3(float3(plane.worldPosition) + float3(Float(plane.planeGeometry.width * randCGFloat()), 0, Float(plane.planeGeometry.height * randCGFloat())))
